@@ -1,0 +1,107 @@
+---
+name: "Native Tests - Development"
+
+# Adding the dispatch event to allow restarting the build on demand
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  repository_dispatch:
+
+jobs:
+  build_with_native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: development
+
+      - name: Reclaim Disk Space
+        run: .github/ci-prerequisites.sh
+
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "::set-output name=date::$(/bin/date -u "+%Y-%m")"
+        shell: bash
+      - name: Cache Maven Repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          # refresh cache every month to avoid unlimited growth
+          key: q2maven-native-${{ steps.get-date.outputs.date }}
+
+      - name: Install JDK 11
+        uses: joschi/setup-jdk@68381f2c0646f942f70b69f8e81fe10e1ed5d293
+        with:
+          java-version: '11'
+
+      - name: Build Quarkus master
+        run: |
+          git clone https://github.com/quarkusio/quarkus.git
+          cd quarkus
+          mvn -B clean install -DskipTests -DskipITs
+
+      - name: Build Quickstart with native
+        run: |
+          mvn -B clean install --fail-at-end -Pnative -Ddocker \
+            -Dquarkus.native.container-build=true \
+            -Dquarkus.native.builder-image=quay.io/quarkus/ubi-quarkus-native-image:20.1.0-java11
+
+      - name: Check RSS
+        env:
+          QUICKSTART_VERSION: "1.0-SNAPSHOT"
+          RSS_THRESHOLD: "40000"
+          START_TIME_THRESHOLD: "1000"
+          REMOTE_OBJECT_NAME: "pmap.out"
+          BUCKET_NAME: ${{ secrets.IBM_COS_BUCKET_NAME }}
+          API_KEY: ${{ secrets.IBM_COS_SERVICE_CREDENTIAL_API_KEY }}
+          SERVICE_INSTANCE_ID: ${{ secrets.IBM_COS_SERVICE_CREDENTIAL_RESOURCE_INSTANCE_ID }}
+
+        run: |
+          sudo apt-get update -o Dir::Etc::sourcelist="sources.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
+          sudo apt-get install -y gnupg2 gnupg-agent
+          echo Installing SDKMAN
+          curl -s "https://get.sdkman.io" | bash
+          source ~/.sdkman/bin/sdkman-init.sh
+          sdk install jbang
+          getting-started/target/getting-started-${QUICKSTART_VERSION}-runner -Xmx2m -Dquarkus.http.io-threads=1 -Dquarkus.vertx.worker-pool-size=1 > server.log &
+          sleep 2
+          appPid=$!
+          pmap -x $appPid > pmap.out
+          ps --no-headers  -C getting-started-${QUICKSTART_VERSION}-runner -o rss > rss.out
+          rss=$(< rss.out)
+          echo "Max RSS Threshold (kB): ${RSS_THRESHOLD}"
+          echo "RSS (kB): $rss"
+          startTime=$(grep -oP "started in \K([0-9]*\.[0-9]*)" server.log)
+          startTimeMs=$(echo "$startTime*1000/1" | bc)
+          echo "Start time Threshold (ms): ${START_TIME_THRESHOLD}"
+          echo "Start time (ms): $startTimeMs"
+          jbang .github/RssRegression.java ${BUCKET_NAME} ${API_KEY} ${SERVICE_INSTANCE_ID} ${REMOTE_OBJECT_NAME} pmap.old.out pmap.out
+          [ "$rss" -lt "${RSS_THRESHOLD}" ] && [ "$startTimeMs" -lt "${START_TIME_THRESHOLD}" ] && exit 0 || exit 1
+
+      - uses: actions/upload-artifact@v1
+        with:
+          name: pmap
+          path: pmap.out
+
+      - name: Delete Local Artifacts From Cache
+        shell: bash
+        run: rm -rf ~/.m2/repository/org/acme
+
+      - name: Report
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_API_TOKEN }}
+          STATUS: ${{ job.status }}
+        run: |
+          echo "The report step got status: ${STATUS}"
+          sudo apt-get update -o Dir::Etc::sourcelist="sources.list" \
+            -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
+          sudo apt-get install -y gnupg2 gnupg-agent
+          echo Installing SDKMAN
+          curl -s "https://get.sdkman.io" | bash
+          source ~/.sdkman/bin/sdkman-init.sh
+          sed -i -e 's/sdkman_auto_answer=false/sdkman_auto_answer=true/g' ~/.sdkman/etc/config
+          sdk install jbang 0.50.1
+          jbang .github/NativeBuildReport.java token="${GITHUB_TOKEN}" status="${STATUS}" issueRepo="quarkusio/quarkus" issueNumber="6588" thisRepo="${GITHUB_REPOSITORY}" runId="${GITHUB_RUN_ID}"
