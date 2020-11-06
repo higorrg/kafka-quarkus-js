@@ -3,7 +3,7 @@ An example of Kafka with [Quarkus](https://quarkus.io) as producer, [Quarkus](ht
 
 ## Architecture
 
-The ideia is to publish temperatures in Kelvin in the "temperature" Kafka Topic, then start two instances of the consumer project one to consume and convert from Kelvin to Celsius and the other to consume and convert from Kelvin to Fahrenheit.
+The ideia is to publish Kelvin temperatures in the "temperature" Kafka Topic, then start two instances of the consumer project one to consume and convert from Kelvin to Celsius and the other to consume and convert from Kelvin to Fahrenheit.
 
 After running the scripts described below, two Web Apps will be available one at http://0.0.0.0:8082/ and the other at http://0.0.0.0:8083/
 
