@@ -1,5 +1,5 @@
 #!/bin/bash
-if [ ! -f kafka-producer-1.0-SNAPSHOT-runner.jar ]; then
+if [ ! -f target/quarkus-app/quarkus-run.jar ]; then
   mvn clean package
 fi
-java -jar target/kafka-producer-1.0-SNAPSHOT-runner.jar
+java -jar target/quarkus-app/quarkus-run.jar
