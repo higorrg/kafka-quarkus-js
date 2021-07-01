@@ -5,8 +5,11 @@ import java.util.Random;
 
 import javax.enterprise.context.ApplicationScoped;
 
-import io.smallrye.mutiny.Multi;
 import org.eclipse.microprofile.reactive.messaging.Outgoing;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.smallrye.mutiny.Multi;
 
 /**
  * A bean producing random temperature every 5 seconds.
@@ -15,13 +18,16 @@ import org.eclipse.microprofile.reactive.messaging.Outgoing;
 @ApplicationScoped
 public class TemperatureGenerator {
 
+	private static final Logger logger = LoggerFactory.getLogger(TemperatureGenerator.class);
     private Random random = new Random();
 
     @Outgoing("generated-temperature")
     public Multi<Integer> generate() {
-        return Multi.createFrom().ticks().every(Duration.ofSeconds(1))
+        Multi<Integer> randomTemperature = Multi.createFrom().ticks().every(Duration.ofSeconds(1))
                 .onOverflow().drop()
                 .map(tick -> random.nextInt(100));
+		logger.info("Generated Temperature: " + randomTemperature);
+		return randomTemperature;
     }
 
 }
