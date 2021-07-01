@@ -23,11 +23,15 @@ public class TemperatureGenerator {
 
     @Outgoing("generated-temperature")
     public Multi<Integer> generate() {
-        Multi<Integer> randomTemperature = Multi.createFrom().ticks().every(Duration.ofSeconds(1))
+		return Multi.createFrom()
+				.ticks()
+				.every(Duration.ofSeconds(1))
                 .onOverflow().drop()
-                .map(tick -> random.nextInt(100));
-		logger.info("Generated Temperature: " + randomTemperature);
-		return randomTemperature;
+				.map(tick -> {
+					var randomTemperature = random.nextInt(100);
+					logger.info("Generated Temperature: " + randomTemperature);
+					return randomTemperature;
+				});
     }
 
 }
