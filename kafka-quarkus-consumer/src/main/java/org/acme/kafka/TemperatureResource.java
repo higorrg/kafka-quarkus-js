@@ -16,7 +16,7 @@ public class TemperatureResource {
 
     @Inject
     @Channel("temperature-stream")
-    Publisher<Double> temperature;
+    Publisher<Double> temperatureStream;
 
     @ConfigProperty(name = "temperature-name")
     String temperatureName;
@@ -26,7 +26,7 @@ public class TemperatureResource {
     @Produces(MediaType.SERVER_SENT_EVENTS)
     @SseElementType("text/plain")
     public Publisher<Double> stream() {
-        return temperature;
+        return temperatureStream;
     }
 
     @GET
