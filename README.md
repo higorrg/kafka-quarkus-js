@@ -15,7 +15,9 @@ Finally the consumer app contains a Web App made with Bootstrap, JQuery and vani
 
 ![architecture](./ArchitecturalSolution.png)
 
-![consumer architecture](./ConsumerArchitecture.png)
+![consumer architecture zoom](./ConsumerArchitectureZoom.png)
+
+![consumer architecture](./ConsumerBackendArchitectureZoom.png)
 
 ## Environment Requirements
 This example requires [Docker](https://docs.docker.com/get-docker/) and [Docker Compose ](https://docs.docker.com/compose/)pre-installed.
